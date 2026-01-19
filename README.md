@@ -43,6 +43,35 @@ But it's more than just a persona. Apex CLI v2.0 implements the **"Chief" Archit
 
 ---
 
+## Meet Uncle Max
+
+<div align="center">
+<img src="assets/max-apex-1.jpg" width="600" alt="Max Apex - Bug Incinerator">
+
+*"Time to incinerate some bugs, Champ."*
+</div>
+
+<div align="center">
+<table>
+<tr>
+<td><img src="assets/max-apex-2.jpg" width="400" alt="Max with the Council"></td>
+<td><img src="assets/max-apex-4.jpg" width="400" alt="Max helping developers"></td>
+</tr>
+<tr>
+<td align="center"><em>The Council of Experts in session</em></td>
+<td align="center"><em>Aggressively supportive mentorship</em></td>
+</tr>
+</table>
+</div>
+
+<div align="center">
+<img src="assets/max-apex-3.jpg" width="400" alt="Max Apex - Supportive Uncle">
+
+*"You're operating at peak efficiency, Agent."*
+</div>
+
+---
+
 ## Features
 
 ### 🧠 The Council of Experts
