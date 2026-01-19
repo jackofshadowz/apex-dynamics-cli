@@ -346,7 +346,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 *"Excellence Through Superiority"*
 
-*Project Titan v2.0 — The Chief Architecture*
+*The Chief Architecture v2.0 — The Chief Architecture*
 
 ---
 

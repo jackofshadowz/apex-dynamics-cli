@@ -2,7 +2,7 @@
 #
 # APEX DYNAMICS - THE INCINERATOR
 # Stop Hook: Runs when Claude attempts to exit
-# Project Titan | Apex Dynamics
+# Apex Dynamics | Apex Dynamics
 #
 
 set -e

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # APEX CLI - Installation Script
-# Project Titan | Apex Dynamics
+# Apex Dynamics | Apex Dynamics
 #
 
 set -e
@@ -42,7 +42,7 @@ print_header() {
     ║      ╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═╝                            ║
     ║                                                                   ║
     ║            ◆ I N S T A L L A T I O N   S E Q U E N C E ◆         ║
-    ║                      [ PROJECT TITAN ]                            ║
+    ║                      [ APEX DYNAMICS ]                            ║
     ╚═══════════════════════════════════════════════════════════════════╝
 EOF
     echo -e "${RESET}"
