@@ -3,14 +3,13 @@
 <div align="center">
 
 ```
-    ___    ____  _______  __     ________    ____
-   /   |  / __ \/ ____/ |/ /    / ____/ /   /  _/
-  / /| | / /_/ / __/  |   /    / /   / /    / /
- / ___ |/ ____/ /___ /   |    / /___/ /____/ /
-/_/  |_/_/   /_____//_/|_|    \____/_____/___/
+  AAA   PPPP  EEEEE X   X     DDDD  Y   Y N   N  AAA  M   M IIIII  CCCC  SSSS
+ A   A  P   P E      X X      D   D  Y Y  NN  N A   A MM MM   I   C     S
+ AAAAA  PPPP  EEEE    X       D   D   Y   N N N AAAAA M M M   I   C      SSS
+ A   A  P     E      X X      D   D   Y   N  NN A   A M   M   I   C         S
+ A   A  P     EEEEE X   X     DDDD    Y   N   N A   A M   M IIIII  CCCC SSSS
 
-        S O V E R E I G N   T E R M I N A L
-              [ APEX DYNAMICS v2.0 ]
+                   SOVEREIGN TERMINAL v2.0
 ```
 
 **A Sovereign Cognitive Architecture for Claude Code**
