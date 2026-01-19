@@ -1,0 +1,597 @@
+#!/usr/bin/env bash
+#
+# APEX CLI v2.0 - Sovereign Cognitive Architecture
+# The "Chief" Architecture | Project Titan
+# A two-phase cognitive wrapper around the claude CLI
+#
+
+set -e
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CONFIGURATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Resolve symlinks to find the actual script location
+SOURCE="${BASH_SOURCE[0]}"
+while [[ -L "$SOURCE" ]]; do
+    SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$SCRIPT_DIR/$SOURCE"
+done
+SCRIPT_DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+
+# Project root is one level up from bin/
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# File locations
+IDENTITY_FILE="${PROJECT_ROOT}/lib/identity.md"
+COUNCIL_FILE="${PROJECT_ROOT}/lib/council.md"
+BANNER_FILE="${PROJECT_ROOT}/lib/banner.txt"
+PACKAGE_JSON="${PROJECT_ROOT}/package.json"
+
+# Log directory (created in user's current working directory)
+LOG_DIR=".apex/logs"
+SESSION_ID="$(date +%s)"
+SESSION_LOG=""
+
+# Plan file (temporary)
+PLAN_FILE=".apex/PLAN_${SESSION_ID}.md"
+
+# ANSI Color Codes - Amber on Black
+AMBER='\033[38;5;214m'
+AMBER_BOLD='\033[1;38;5;214m'
+DIM='\033[2;38;5;214m'
+RED='\033[38;5;196m'
+GREEN='\033[38;5;46m'
+CYAN='\033[38;5;51m'
+MAGENTA='\033[38;5;201m'
+RESET='\033[0m'
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ASCII ART & VISUAL FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+print_header() {
+    echo -e "${AMBER_BOLD}"
+    if [[ -f "$BANNER_FILE" ]]; then
+        cat "$BANNER_FILE"
+    else
+        cat << 'EOF'
+    ╔═══════════════════════════════════════════════════════════════════════════╗
+    ║              ◆ S O V E R E I G N   T E R M I N A L ◆                      ║
+    ║                    [ APEX DYNAMICS MAINFRAME ]                            ║
+    ╚═══════════════════════════════════════════════════════════════════════════╝
+EOF
+    fi
+    echo -e "${RESET}"
+}
+
+print_phase_header() {
+    local phase="$1"
+    local description="$2"
+    echo ""
+    echo -e "${MAGENTA}╔═══════════════════════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${MAGENTA}║${RESET}  ${AMBER_BOLD}PHASE: ${phase}${RESET}"
+    echo -e "${MAGENTA}║${RESET}  ${DIM}${description}${RESET}"
+    echo -e "${MAGENTA}╚═══════════════════════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+}
+
+print_divider() {
+    echo -e "${DIM}═══════════════════════════════════════════════════════════════════════════════${RESET}"
+}
+
+print_status() {
+    echo -e "${AMBER}▶ $1${RESET}"
+}
+
+print_success() {
+    echo ""
+    print_divider
+    echo -e "${GREEN}"
+    cat << 'EOF'
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║   █████╗ ███████╗███████╗███████╗████████╗                        ║
+    ║  ██╔══██╗██╔════╝██╔════╝██╔════╝╚══██╔══╝                        ║
+    ║  ███████║███████╗███████╗█████╗     ██║                           ║
+    ║  ██╔══██║╚════██║╚════██║██╔══╝     ██║                           ║
+    ║  ██║  ██║███████║███████║███████╗   ██║                           ║
+    ║  ╚═╝  ╚═╝╚══════╝╚══════╝╚══════╝   ╚═╝                           ║
+    ║                                                                   ║
+    ║       ◆ S E C U R E D ◆     DRINKS ON ME, CHAMP.                 ║
+    ╚═══════════════════════════════════════════════════════════════════╝
+EOF
+    echo -e "${RESET}"
+    print_divider
+}
+
+print_failure() {
+    echo ""
+    print_divider
+    echo -e "${RED}"
+    cat << 'EOF'
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║  ███╗   ███╗██╗███████╗███████╗██╗ ██████╗ ███╗   ██╗             ║
+    ║  ████╗ ████║██║██╔════╝██╔════╝██║██╔═══██╗████╗  ██║             ║
+    ║  ██╔████╔██║██║███████╗███████╗██║██║   ██║██╔██╗ ██║             ║
+    ║  ██║╚██╔╝██║██║╚════██║╚════██║██║██║   ██║██║╚██╗██║             ║
+    ║  ██║ ╚═╝ ██║██║███████║███████║██║╚██████╔╝██║ ╚████║             ║
+    ║  ╚═╝     ╚═╝╚═╝╚══════╝╚══════╝╚═╝ ╚═════╝ ╚═╝  ╚═══╝             ║
+    ║                                                                   ║
+    ║       ◆ F A I L E D ◆     RE-ENGAGE, AGENT.                      ║
+    ╚═══════════════════════════════════════════════════════════════════╝
+EOF
+    echo -e "${RESET}"
+    print_divider
+}
+
+print_council_header() {
+    echo -e "${CYAN}"
+    cat << 'EOF'
+    ╔═══════════════════════════════════════════════════════════════════╗
+    ║                                                                   ║
+    ║     ████████╗██╗  ██╗███████╗     ██████╗ ██████╗ ██╗   ██╗      ║
+    ║     ╚══██╔══╝██║  ██║██╔════╝    ██╔════╝██╔═══██╗██║   ██║      ║
+    ║        ██║   ███████║█████╗      ██║     ██║   ██║██║   ██║      ║
+    ║        ██║   ██╔══██║██╔══╝      ██║     ██║   ██║██║   ██║      ║
+    ║        ██║   ██║  ██║███████╗    ╚██████╗╚██████╔╝╚██████╔╝      ║
+    ║        ╚═╝   ╚═╝  ╚═╝╚══════╝     ╚═════╝ ╚═════╝  ╚═════╝       ║
+    ║                    N  C  I  L                                    ║
+    ║                                                                   ║
+    ║              ◆ STEEL SHARPENS STEEL ◆                            ║
+    ╚═══════════════════════════════════════════════════════════════════╝
+EOF
+    echo -e "${RESET}"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# UTILITY FUNCTIONS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+get_version() {
+    if [[ -f "$PACKAGE_JSON" ]]; then
+        grep '"version"' "$PACKAGE_JSON" | sed 's/.*"version": *"\([^"]*\)".*/\1/'
+    else
+        echo "2.0.0"
+    fi
+}
+
+init_logging() {
+    mkdir -p "$LOG_DIR"
+    SESSION_LOG="${LOG_DIR}/session_${SESSION_ID}.log"
+
+    # Write session header to log
+    {
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo "APEX CLI SESSION LOG"
+        echo "Session ID: ${SESSION_ID}"
+        echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Working Directory: $(pwd)"
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo ""
+    } > "$SESSION_LOG"
+
+    print_status "Session logging initialized: ${SESSION_LOG}"
+}
+
+log_phase() {
+    local phase="$1"
+    local content="$2"
+    {
+        echo ""
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo "PHASE: ${phase}"
+        echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo ""
+        echo "$content"
+        echo ""
+    } >> "$SESSION_LOG"
+}
+
+show_usage() {
+    local VERSION
+    VERSION=$(get_version)
+
+    echo -e "${AMBER_BOLD}APEX CLI v${VERSION} - Sovereign Cognitive Architecture${RESET}"
+    echo -e "${DIM}The \"Chief\" Architecture | Project Titan${RESET}"
+    echo ""
+    echo -e "${AMBER}Usage:${RESET}"
+    echo "  apex \"<your prompt>\"     Full cognitive cycle (Council + Execution)"
+    echo "  apex --quick \"<prompt>\"  Skip Council, direct execution"
+    echo "  apex --plan \"<prompt>\"   Council planning only (no execution)"
+    echo "  apex --help              Show this help message"
+    echo "  apex --version           Show version information"
+    echo ""
+    echo -e "${AMBER}Modes:${RESET}"
+    echo "  Default     Council deliberates, user approves, then execution"
+    echo "  --quick     Bypass Council for simple tasks"
+    echo "  --plan      Generate strategic plan without executing"
+    echo ""
+    echo -e "${AMBER}Examples:${RESET}"
+    echo "  apex \"Build a REST API for user authentication\""
+    echo "  apex --quick \"Fix the typo in README.md\""
+    echo "  apex --plan \"Refactor the database layer\""
+    echo ""
+    echo -e "${DIM}Logs: .apex/logs/session_*.log${RESET}"
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 1: COUNCIL DELIBERATION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+run_council_phase() {
+    local user_prompt="$1"
+
+    print_phase_header "1 - COUNCIL DELIBERATION" "The Council of Experts convenes to debate strategy"
+    print_council_header
+
+    # Check for council file
+    if [[ ! -f "$COUNCIL_FILE" ]]; then
+        echo -e "${RED}▶ CRITICAL: Council protocol not found at ${COUNCIL_FILE}${RESET}"
+        exit 1
+    fi
+
+    # Load council prompt
+    local COUNCIL_PROMPT
+    COUNCIL_PROMPT=$(cat "$COUNCIL_FILE")
+
+    # Combine council prompt with user request
+    local FULL_COUNCIL_PROMPT="${COUNCIL_PROMPT}
+
+---
+
+## MISSION FOR COUNCIL DELIBERATION
+
+The user has submitted the following request for strategic planning:
+
+${user_prompt}
+
+Convene the Council. Debate the approach. Output the complete Strategic Plan as specified in the Council Protocol."
+
+    print_status "Council convening..."
+    print_status "Architect, Security Engineer, Performance Engineer, and User Advocate are deliberating..."
+    print_divider
+    echo ""
+
+    # Create .apex directory if needed
+    mkdir -p .apex
+
+    # Execute council phase and capture output
+    set +e
+    local COUNCIL_OUTPUT
+    COUNCIL_OUTPUT=$(claude -p "$FULL_COUNCIL_PROMPT" 2>&1)
+    local COUNCIL_EXIT=$?
+    set -e
+
+    # Display council output
+    echo "$COUNCIL_OUTPUT"
+
+    # Log council phase
+    log_phase "COUNCIL DELIBERATION" "$COUNCIL_OUTPUT"
+
+    # Save plan to file
+    echo "$COUNCIL_OUTPUT" > "$PLAN_FILE"
+
+    if [[ $COUNCIL_EXIT -ne 0 ]]; then
+        echo -e "${RED}▶ Council deliberation failed.${RESET}"
+        return 1
+    fi
+
+    print_divider
+    print_status "Strategic Plan saved to: ${PLAN_FILE}"
+
+    return 0
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SUPERVISOR CHECK
+# ═══════════════════════════════════════════════════════════════════════════════
+
+supervisor_approval() {
+    echo ""
+    print_divider
+    echo ""
+    echo -e "${AMBER_BOLD}╔═══════════════════════════════════════════════════════════════════════════════╗${RESET}"
+    echo -e "${AMBER_BOLD}║                        SUPERVISOR CHECKPOINT                                  ║${RESET}"
+    echo -e "${AMBER_BOLD}╚═══════════════════════════════════════════════════════════════════════════════╝${RESET}"
+    echo ""
+    echo -e "${AMBER}The Council has spoken. Review the Strategic Plan above.${RESET}"
+    echo ""
+    echo -e "${GREEN}[Y]${RESET} Approve and proceed to execution"
+    echo -e "${RED}[n]${RESET} Reject and abort mission"
+    echo -e "${CYAN}[r]${RESET} Request Council to reconsider (re-run planning)"
+    echo ""
+    echo -ne "${AMBER_BOLD}Proceed with execution? [Y/n/r]: ${RESET}"
+
+    read -r response
+
+    case "${response,,}" in
+        n|no)
+            echo ""
+            echo -e "${RED}▶ Mission aborted by supervisor.${RESET}"
+            log_phase "SUPERVISOR DECISION" "REJECTED - Mission aborted by user"
+            return 1
+            ;;
+        r|reconsider)
+            echo ""
+            echo -e "${CYAN}▶ Requesting Council reconsideration...${RESET}"
+            log_phase "SUPERVISOR DECISION" "RECONSIDER - User requested re-planning"
+            return 2
+            ;;
+        *)
+            echo ""
+            echo -e "${GREEN}▶ Execution approved. Proceeding...${RESET}"
+            log_phase "SUPERVISOR DECISION" "APPROVED - Proceeding to execution"
+            return 0
+            ;;
+    esac
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PHASE 2: EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+run_execution_phase() {
+    local user_prompt="$1"
+    local plan_content="$2"
+
+    print_phase_header "2 - EXECUTION" "Max Apex implements the approved strategy"
+
+    # Check for identity file
+    if [[ ! -f "$IDENTITY_FILE" ]]; then
+        echo -e "${RED}▶ CRITICAL: Identity protocol not found at ${IDENTITY_FILE}${RESET}"
+        exit 1
+    fi
+
+    # Load identity
+    local IDENTITY
+    IDENTITY=$(cat "$IDENTITY_FILE")
+
+    # Combine identity with plan and user prompt
+    local FULL_EXEC_PROMPT="${IDENTITY}
+
+---
+
+## APPROVED STRATEGIC PLAN
+
+The Council of Experts has deliberated and approved the following plan:
+
+${plan_content}
+
+---
+
+## ORIGINAL MISSION
+
+${user_prompt}
+
+---
+
+## EXECUTION ORDERS
+
+You are now in EXECUTION MODE. The planning is complete. Implement the approved strategy.
+
+Remember:
+1. Follow the Internal Affairs Protocol - output your briefing BEFORE writing code
+2. Consult the Virtual Personas before finalizing
+3. Code is frozen thought - freeze it right
+
+Execute the mission, Agent."
+
+    print_status "INITIALIZING APEX DYNAMICS MAINFRAME..."
+    print_status "IDENTITY PROTOCOL LOADED: MAX APEX"
+    print_status "STRATEGIC PLAN LOADED"
+    print_status "ENTERING EXECUTION PHASE..."
+    print_divider
+    echo ""
+
+    # Execute with logging
+    set +e
+    local EXEC_OUTPUT
+    EXEC_OUTPUT=$(claude -p "$FULL_EXEC_PROMPT" 2>&1)
+    local EXEC_EXIT=$?
+    set -e
+
+    # Display output
+    echo "$EXEC_OUTPUT"
+
+    # Log execution phase
+    log_phase "EXECUTION" "$EXEC_OUTPUT"
+
+    return $EXEC_EXIT
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# QUICK MODE (BYPASS COUNCIL)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+run_quick_mode() {
+    local user_prompt="$1"
+
+    print_phase_header "QUICK MODE" "Bypassing Council - Direct execution"
+
+    # Check for identity file
+    if [[ ! -f "$IDENTITY_FILE" ]]; then
+        echo -e "${RED}▶ CRITICAL: Identity protocol not found at ${IDENTITY_FILE}${RESET}"
+        exit 1
+    fi
+
+    # Load identity
+    local IDENTITY
+    IDENTITY=$(cat "$IDENTITY_FILE")
+
+    local FULL_PROMPT="${IDENTITY}
+
+---
+
+## CURRENT MISSION (QUICK MODE)
+
+The user (your favorite nephew/niece) needs your help with the following:
+
+${user_prompt}
+
+This is QUICK MODE - the task is simple enough to skip Council deliberation.
+Still follow the Internal Affairs Protocol and Frozen Thought Philosophy.
+
+Execute the mission, Agent."
+
+    print_status "QUICK MODE ENGAGED"
+    print_status "IDENTITY PROTOCOL LOADED: MAX APEX"
+    print_divider
+    echo ""
+
+    set +e
+    local OUTPUT
+    OUTPUT=$(claude -p "$FULL_PROMPT" 2>&1)
+    local EXIT_CODE=$?
+    set -e
+
+    echo "$OUTPUT"
+    log_phase "QUICK EXECUTION" "$OUTPUT"
+
+    return $EXIT_CODE
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MAIN EXECUTION
+# ═══════════════════════════════════════════════════════════════════════════════
+
+main() {
+    local VERSION
+    VERSION=$(get_version)
+    local MODE="full"
+    local USER_PROMPT=""
+
+    # Parse arguments
+    case "${1:-}" in
+        --help|-h)
+            show_usage
+            exit 0
+            ;;
+        --version|-v)
+            echo "Apex CLI v${VERSION} - The Chief Architecture"
+            exit 0
+            ;;
+        --quick|-q)
+            MODE="quick"
+            shift
+            USER_PROMPT="${1:-}"
+            ;;
+        --plan|-p)
+            MODE="plan"
+            shift
+            USER_PROMPT="${1:-}"
+            ;;
+        "")
+            clear
+            print_header
+            echo -e "${RED}▶ ERROR: No prompt provided, Agent.${RESET}"
+            echo ""
+            show_usage
+            exit 1
+            ;;
+        *)
+            USER_PROMPT="$1"
+            ;;
+    esac
+
+    # Validate prompt
+    if [[ -z "$USER_PROMPT" ]]; then
+        echo -e "${RED}▶ ERROR: No prompt provided after flag.${RESET}"
+        show_usage
+        exit 1
+    fi
+
+    # Clear screen and show header
+    clear
+    print_header
+
+    # Check for claude CLI
+    if ! command -v claude &> /dev/null; then
+        echo -e "${RED}▶ CRITICAL: Claude CLI not detected in system PATH.${RESET}"
+        echo -e "${RED}  Install the claude CLI before engaging Apex systems.${RESET}"
+        exit 1
+    fi
+
+    # Initialize logging
+    init_logging
+    log_phase "SESSION START" "User Prompt: ${USER_PROMPT}\nMode: ${MODE}"
+
+    local EXIT_CODE=0
+
+    case "$MODE" in
+        quick)
+            run_quick_mode "$USER_PROMPT"
+            EXIT_CODE=$?
+            ;;
+        plan)
+            run_council_phase "$USER_PROMPT"
+            EXIT_CODE=$?
+            if [[ $EXIT_CODE -eq 0 ]]; then
+                echo ""
+                print_status "Planning complete. Plan saved to: ${PLAN_FILE}"
+                print_status "Run 'apex \"<prompt>\"' to execute with Council approval flow."
+            fi
+            ;;
+        full)
+            # Full cognitive cycle
+            local PLAN_APPROVED=false
+
+            while [[ "$PLAN_APPROVED" == "false" ]]; do
+                run_council_phase "$USER_PROMPT"
+                if [[ $? -ne 0 ]]; then
+                    EXIT_CODE=1
+                    break
+                fi
+
+                supervisor_approval
+                local APPROVAL_RESULT=$?
+
+                case $APPROVAL_RESULT in
+                    0)
+                        PLAN_APPROVED=true
+                        ;;
+                    1)
+                        EXIT_CODE=1
+                        break
+                        ;;
+                    2)
+                        # Re-run council
+                        echo ""
+                        print_status "Re-convening the Council..."
+                        continue
+                        ;;
+                esac
+            done
+
+            if [[ "$PLAN_APPROVED" == "true" ]]; then
+                local PLAN_CONTENT
+                PLAN_CONTENT=$(cat "$PLAN_FILE")
+                run_execution_phase "$USER_PROMPT" "$PLAN_CONTENT"
+                EXIT_CODE=$?
+            fi
+            ;;
+    esac
+
+    # Final status
+    echo ""
+    if [[ $EXIT_CODE -eq 0 ]]; then
+        print_success
+        log_phase "SESSION END" "Status: SUCCESS"
+    else
+        print_failure
+        log_phase "SESSION END" "Status: FAILED (Exit code: ${EXIT_CODE})"
+    fi
+
+    print_status "Session log: ${SESSION_LOG}"
+
+    # Cleanup plan file on success
+    if [[ $EXIT_CODE -eq 0 ]] && [[ -f "$PLAN_FILE" ]]; then
+        rm -f "$PLAN_FILE"
+    fi
+
+    exit $EXIT_CODE
+}
+
+# Run main function with all arguments
+main "$@"
